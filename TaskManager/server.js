@@ -12,6 +12,96 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // --- API Routes ---
 
+// --- Notes API ---
+
+// Get all notes
+app.get('/api/notes', async (req, res) => {
+    const sql = "SELECT * FROM notes ORDER BY is_important DESC, created_at DESC";
+    try {
+        const result = await db.query(sql);
+        res.json({
+            "message": "success",
+            "data": result.rows
+        });
+    } catch (err) {
+        res.status(400).json({ "error": err.message });
+    }
+});
+
+// Create a new note
+app.post('/api/notes', async (req, res) => {
+    const { content } = req.body;
+    const created_at = new Date().toISOString();
+    const sql = 'INSERT INTO notes (content, created_at) VALUES ($1, $2) RETURNING id';
+    const params = [content, created_at];
+
+    try {
+        const result = await db.query(sql, params);
+        res.json({
+            "message": "success",
+            "data": {
+                id: result.rows[0].id,
+                content,
+                created_at,
+                is_important: 0
+            }
+        });
+    } catch (err) {
+        res.status(400).json({ "error": err.message });
+    }
+});
+
+// Update note (content or importance)
+app.patch('/api/notes/:id', async (req, res) => {
+    const { content, is_important } = req.body;
+    const { id } = req.params;
+
+    let sql = 'UPDATE notes SET ';
+    const params = [];
+    const updates = [];
+    let paramIndex = 1;
+
+    if (content !== undefined) {
+        updates.push(`content = $${paramIndex++}`);
+        params.push(content);
+    }
+
+    if (is_important !== undefined) {
+        updates.push(`is_important = $${paramIndex++}`);
+        params.push(is_important);
+    }
+
+    if (updates.length === 0) {
+        return res.status(400).json({ "error": "No fields to update" });
+    }
+
+    sql += updates.join(', ') + ` WHERE id = $${paramIndex}`;
+    params.push(id);
+
+    try {
+        const result = await db.query(sql, params);
+        res.json({
+            "message": "success",
+            "changes": result.rowCount
+        });
+    } catch (err) {
+        res.status(400).json({ "error": err.message });
+    }
+});
+
+// Delete a note
+app.delete('/api/notes/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM notes WHERE id = $1', [id]);
+        res.json({ "message": "deleted", "changes": result.rowCount });
+    } catch (err) {
+        res.status(400).json({ "error": err.message });
+    }
+});
+
+// --- Tasks API ---
+
 // Get all tasks
 app.get('/api/tasks', async (req, res) => {
     const sql = "SELECT * FROM tasks ORDER BY is_important DESC, created_at DESC";
