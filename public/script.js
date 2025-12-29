@@ -1,366 +1,268 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM Elements ---
-    const importantTasksContainer = document.getElementById('important-tasks');
-    const upcomingTasksContainer = document.getElementById('upcoming-tasks');
-    const pendingTasksContainer = document.getElementById('pending-tasks');
-    const completedTasksContainer = document.getElementById('completed-tasks');
+    // --- Configuration & State ---
+    const CONTAINERS = {
+        pending: ['section-pending', 'section-upcoming', 'section-important', 'section-notes-important'],
+        completed: ['section-completed'],
+        notes: ['section-notes', 'section-notes-important']
+    };
 
-    const sectionImportant = document.getElementById('section-important');
-    const sectionUpcoming = document.getElementById('section-upcoming');
-    const sectionPending = document.getElementById('section-pending');
-    const sectionCompleted = document.getElementById('section-completed');
+    const ELEMENTS = {
+        importantTasks: document.getElementById('important-tasks'),
+        upcomingTasks: document.getElementById('upcoming-tasks'),
+        pendingTasks: document.getElementById('pending-tasks'),
+        completedTasks: document.getElementById('completed-tasks'),
+        notesGrid: document.getElementById('notes-grid'),
+        notesGridImportant: document.getElementById('notes-grid-important'),
+        mainFab: document.getElementById('main-fab'),
+        fabOptions: document.getElementById('fab-options'),
+        addTaskModal: document.getElementById('add-task-modal'),
+        newTaskInput: document.getElementById('new-task-input'),
+        modalDateSection: document.getElementById('modal-date-section'),
+        taskDateInput: document.getElementById('task-date'),
+        taskTimeInput: document.getElementById('task-time'),
+        saveTaskBtn: document.getElementById('save-task-btn'),
+        cancelTaskBtn: document.getElementById('cancel-task-btn'),
+        viewBtns: document.querySelectorAll('.view-btn'),
+        statPending: document.getElementById('stat-pending'),
+        statImportant: document.getElementById('stat-important')
+    };
 
-    const viewBtns = document.querySelectorAll('.view-btn');
+    let currentView = 'pending';
+    let editingTaskId = null;
 
-    // Stats
-    const statPendingEl = document.getElementById('stat-pending');
-    const statImportantEl = document.getElementById('stat-important');
-
-    // FAB & Modal
-    const mainFab = document.getElementById('main-fab');
-    const fabOptionsContainer = document.getElementById('fab-options');
-    const btnNoDueDate = document.getElementById('btn-no-due-date');
-    const btnDueDate = document.getElementById('btn-due-date');
-
-    const addTaskModal = document.getElementById('add-task-modal');
-    const cancelTaskBtn = document.getElementById('cancel-task-btn');
-    const saveTaskBtn = document.getElementById('save-task-btn');
-    const newTaskInput = document.getElementById('new-task-input');
-    const modalDateSection = document.getElementById('modal-date-section');
-    const taskDateInput = document.getElementById('task-date');
-    const taskTimeInput = document.getElementById('task-time');
-
-    // Header Info
-    const currentDayEl = document.getElementById('current-day');
-    const currentDateEl = document.getElementById('current-date');
-
-    // --- Logic ---
-
-    // View Switcher
-    function updateView(view) {
-        if (view === 'pending') {
-            sectionImportant.classList.remove('hidden');
-            sectionUpcoming.classList.remove('hidden');
-            sectionPending.classList.remove('hidden');
-            sectionCompleted.classList.add('hidden');
-        } else if (view === 'completed') {
-            sectionImportant.classList.add('hidden');
-            sectionUpcoming.classList.add('hidden');
-            sectionPending.classList.add('hidden');
-            sectionCompleted.classList.remove('hidden');
+    // --- Helpers ---
+    const apiCall = async (endpoint, method = 'GET', body = null) => {
+        try {
+            const opts = { method, headers: { 'Content-Type': 'application/json' } };
+            if (body) opts.body = JSON.stringify(body);
+            const res = await fetch(`/api/${endpoint}`, opts);
+            return await res.json();
+        } catch (err) {
+            console.error(`API Error (${endpoint}):`, err);
         }
-    }
+    };
 
-    viewBtns.forEach(btn => {
+    const qs = (selector) => document.querySelector(selector);
+    const createEl = (tag, className = '', html = '') => {
+        const el = document.createElement(tag);
+        if (className) el.className = className;
+        if (html) el.innerHTML = html;
+        return el;
+    };
+
+    // --- View Logic ---
+    const updateView = (view) => {
+        currentView = view;
+        ELEMENTS.fabOptions.classList.add('hidden');
+        ELEMENTS.mainFab.firstElementChild.textContent = 'add';
+
+        document.querySelectorAll('.app-container section').forEach(el => el.classList.add('hidden'));
+
+        // Show relevant sections
+        if (CONTAINERS[view]) {
+            CONTAINERS[view].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('hidden');
+            });
+        }
+
+        if (view === 'notes') fetchNotes();
+    };
+
+    ELEMENTS.viewBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            viewBtns.forEach(b => b.classList.remove('active'));
+            ELEMENTS.viewBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             updateView(btn.dataset.view);
         });
     });
 
-    // Set Current Date Display
-    const date = new Date();
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    currentDayEl.textContent = days[date.getDay()];
-    currentDateEl.textContent = `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+    // --- Date & Stats ---
+    const updateHeaderDate = () => {
+        const date = new Date();
+        document.getElementById('current-day').textContent = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][date.getDay()];
+        document.getElementById('current-date').textContent = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    };
 
-    // Initial State
-    updateView('pending');
-    fetchTasks();
+    // --- Core Functions ---
+    const fetchTasks = async () => {
+        const res = await apiCall('tasks');
+        if (res && res.message === 'success') renderTasks(res.data);
+    };
 
-    // --- API Functions ---
+    const fetchNotes = async () => {
+        const res = await apiCall('notes');
+        if (res && res.message === 'success') renderNotes(res.data);
+    };
 
-    function fetchTasks() {
-        fetch('/api/tasks')
-            .then(res => res.json())
-            .then(data => {
-                if (data.message === 'success') {
-                    renderTasks(data.data);
-                }
-            })
-            .catch(err => console.error('Error fetching tasks:', err));
-    }
-
-    function renderTasks(tasks) {
-        // Sort by ID (Created Order) - Descending (Newest First)
+    const renderTasks = (tasks) => {
         tasks.sort((a, b) => b.id - a.id);
 
-        importantTasksContainer.innerHTML = '';
-        upcomingTasksContainer.innerHTML = '';
-        pendingTasksContainer.innerHTML = '';
-        completedTasksContainer.innerHTML = '';
+        ['importantTasks', 'upcomingTasks', 'pendingTasks', 'completedTasks'].forEach(k => ELEMENTS[k].innerHTML = '');
 
-        // Determine what date to show in "Upcoming"
-        // Priority 1: Today
-        // Priority 2: Tomorrow (only if no tasks for Today)
-
-        const now = new Date();
-
-        // Today string
-        const nowY = now.getFullYear();
-        const nowM = String(now.getMonth() + 1).padStart(2, '0');
-        const nowD = String(now.getDate()).padStart(2, '0');
-        const todayStr = `${nowY}-${nowM}-${nowD}`;
-
-        // Tomorrow string
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const toY = tomorrow.getFullYear();
-        const toM = String(tomorrow.getMonth() + 1).padStart(2, '0');
-        const toD = String(tomorrow.getDate()).padStart(2, '0');
-        const tomorrowStr = `${toY}-${toM}-${toD}`;
-
-        // Check if there are any tasks due TODAY
-        const hasTasksToday = tasks.some(t => {
-            if (!t.due_date) return false;
-            return t.due_date.substring(0, 10) === todayStr;
-        });
-
-        // Determine target date for "Upcoming" view
-        let targetUpcomingDate = null;
-        if (hasTasksToday) {
-            targetUpcomingDate = todayStr;
-        } else {
-            // Check if there are tasks due TOMORROW
-            const hasTasksTomorrow = tasks.some(t => {
-                if (!t.due_date) return false;
-                return t.due_date.substring(0, 10) === tomorrowStr;
-            });
-
-            if (hasTasksTomorrow) {
-                targetUpcomingDate = tomorrowStr;
-            }
-        }
+        const today = new Date().toISOString().split('T')[0];
+        const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+        const hasTasksToday = tasks.some(t => t.due_date?.startsWith(today));
+        const targetUpcoming = hasTasksToday ? today : (tasks.some(t => t.due_date?.startsWith(tomorrow)) ? tomorrow : null);
 
         tasks.forEach(task => {
-            const card = createTaskCard(task);
-            let isUpcoming = false;
-
-            if (task.due_date && targetUpcomingDate) {
-                const taskDatePart = task.due_date.substring(0, 10);
-                if (taskDatePart === targetUpcomingDate) {
-                    isUpcoming = true;
-                }
-            }
-
-            if (task.status === 'completed') {
-                completedTasksContainer.appendChild(card);
-            } else if (task.is_important) {
-                importantTasksContainer.appendChild(card);
-            } else if (isUpcoming) {
-                upcomingTasksContainer.appendChild(card);
-            } else {
-                pendingTasksContainer.appendChild(card);
-            }
+            const card = createCard(task, false);
+            if (task.status === 'completed') ELEMENTS.completedTasks.appendChild(card);
+            else if (task.is_important) ELEMENTS.importantTasks.appendChild(card);
+            else if (task.due_date?.startsWith(targetUpcoming)) ELEMENTS.upcomingTasks.appendChild(card);
+            else ELEMENTS.pendingTasks.appendChild(card);
         });
 
-        // Update Stats
-        const pendingCount = tasks.filter(t => t.status !== 'completed').length;
-        const importantCount = tasks.filter(t => t.status !== 'completed' && t.is_important).length;
+        ELEMENTS.statPending.textContent = tasks.filter(t => t.status !== 'completed').length;
+        ELEMENTS.statImportant.textContent = tasks.filter(t => t.status !== 'completed' && t.is_important).length;
 
-        if (statPendingEl) statPendingEl.textContent = pendingCount;
-        if (statImportantEl) statImportantEl.textContent = importantCount;
+        if (!ELEMENTS.pendingTasks.children.length) ELEMENTS.pendingTasks.innerHTML = createEmptyState('assignment', 'No pending tasks');
+        if (!ELEMENTS.importantTasks.children.length) ELEMENTS.importantTasks.innerHTML = createEmptyState('star', 'No important tasks');
+        if (!ELEMENTS.upcomingTasks.children.length) ELEMENTS.upcomingTasks.innerHTML = createEmptyState('event', 'No upcoming tasks');
+        if (!ELEMENTS.completedTasks.children.length) ELEMENTS.completedTasks.innerHTML = createEmptyState('check_circle', 'No completed tasks');
+    };
 
-        // Empty States
-        if (importantTasksContainer.children.length === 0) {
-            importantTasksContainer.innerHTML = createEmptyState('star', 'No important tasks');
-        }
-        if (upcomingTasksContainer.children.length === 0) {
-            upcomingTasksContainer.innerHTML = createEmptyState('event', 'No upcoming tasks');
-        }
-        if (pendingTasksContainer.children.length === 0) {
-            pendingTasksContainer.innerHTML = createEmptyState('assignment', 'No pending tasks');
-        }
-        if (completedTasksContainer.children.length === 0) {
-            completedTasksContainer.innerHTML = createEmptyState('check_circle', 'No completed tasks');
-        }
-    }
+    const renderNotes = (notes) => {
+        ELEMENTS.notesGrid.innerHTML = '';
+        ELEMENTS.notesGridImportant.innerHTML = '';
 
-    function createEmptyState(icon, text) {
-        return `
-            <div class="empty-state">
-                <span class="material-icons-round empty-state-icon">${icon}</span>
-                <p class="empty-state-text">${text}</p>
+        if (!notes.length) ELEMENTS.notesGrid.innerHTML = createEmptyState('notes', 'No notes found');
+
+        notes.forEach(note => {
+            const card = createCard(note, true);
+            (note.is_important ? ELEMENTS.notesGridImportant : ELEMENTS.notesGrid).appendChild(card);
+        });
+
+        if (!ELEMENTS.notesGridImportant.children.length) ELEMENTS.notesGridImportant.innerHTML = createEmptyState('star', 'No important notes');
+    };
+
+    const createCard = (item, isNote) => {
+        const card = createEl('div', `task-card ${item.is_important ? 'important' : ''}`);
+        const created = new Date(item.created_at);
+        const createdStr = `Created at: ${created.toLocaleDateString()} ${created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+        let header = '';
+        if (!isNote && item.due_date) {
+            const d = new Date(item.due_date);
+            const dStr = d.toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+            const time = item.due_date.includes('T') ? ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+            header = `<div class="task-due-header">Due by: ${dStr}${time}</div>`;
+        }
+
+        const endpoint = isNote ? 'notes' : 'tasks';
+
+        const actions = `
+            <div class="card-actions">
+                ${item.status !== 'completed' ? `
+                    <button class="card-btn btn-important ${item.is_important ? 'active' : ''}" onclick="window.toggleItem('${endpoint}', ${item.id}, ${item.is_important})">${item.is_important ? 'Unpin' : 'Important'}</button>
+                    ${!isNote ? `<button class="card-btn btn-done" onclick="window.markDone(${item.id})">Done</button>` : ''}
+                    <button class="card-btn" style="border: 1px solid #ccc" onclick='window.prepEdit(${JSON.stringify(item).replace(/'/g, "&#39;")}, ${isNote})'>Edit</button>
+                ` : ''}
+                ${item.status === 'completed' || isNote ? `<button class="card-btn" style="border: 1px solid #ccc" onclick="window.deleteItem('${endpoint}', ${item.id})">Delete</button>` : ''}
             </div>
         `;
-    }
 
-    function createTaskCard(task) {
-        const card = document.createElement('div');
-        card.className = `task-card ${task.is_important ? 'important' : ''}`;
-
-        // Created Date formatting
-        const createdDate = new Date(task.created_at);
-        const createdDay = String(createdDate.getDate()).padStart(2, '0');
-        const createdMonth = String(createdDate.getMonth() + 1).padStart(2, '0');
-        const createdYear = createdDate.getFullYear();
-        const createdTime = createdDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-        const createdString = `Created at: ${createdDay}/${createdMonth}/${createdYear} ${createdTime}`;
-
-        // Due Date formatting
-        let topHeader = '';
-        if (task.due_date) {
-            const dueDate = new Date(task.due_date);
-            const dayName = dueDate.toLocaleDateString('en-US', { weekday: 'short' });
-            const dDay = String(dueDate.getDate()).padStart(2, '0');
-            const dMonth = String(dueDate.getMonth() + 1).padStart(2, '0');
-            const dYear = dueDate.getFullYear();
-
-            const hasTime = task.due_date.includes('T');
-            const dTime = hasTime ? dueDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
-
-            const formattedDate = `${dayName}, ${dDay}/${dMonth}/${dYear}`;
-            const dueDisplay = `${formattedDate}${dTime ? ' ' + dTime : ''}`;
-
-            topHeader = `<div class="task-due-header">Due by: ${dueDisplay}</div>`;
-        }
-
-        const importantBtn = task.status !== 'completed' ? `
-            <button class="card-btn btn-important ${task.is_important ? 'active' : ''}" 
-                onclick="toggleImportant(${task.id}, ${task.is_important})">
-                ${task.is_important ? 'Unpin' : 'Important'}
-            </button>` : '';
-
-        const doneBtn = task.status !== 'completed' ? `
-            <button class="card-btn btn-done" onclick="markDone(${task.id})">Done</button>` : '';
-
-        const deleteBtn = task.status === 'completed' ? `
-            <button class="card-btn" style="background:transparent; border: 1px solid #ccc; color: inherit;" 
-                onclick="deleteTask(${task.id})">Delete</button>` : '';
-
-        card.innerHTML = `
-            ${topHeader}
-            <div class="task-content">
-                ${task.content}
-            </div>
-            <div class="task-card-footer">
-                <div class="created-timestamp">${createdString}</div>
-                <div class="card-actions">
-                    ${importantBtn}
-                    ${doneBtn}
-                    ${deleteBtn}
-                </div>
-            </div>
-        `;
+        card.innerHTML = `${header}<div class="task-content">${item.content}</div><div class="task-card-footer"><div class="created-timestamp">${createdStr}</div>${actions}</div>`;
         return card;
-    }
+    };
 
-    // --- Interaction Listeners ---
+    const createEmptyState = (icon, text) => `
+        <div class="empty-state">
+            <span class="material-icons-round empty-state-icon">${icon}</span>
+            <p class="empty-state-text">${text}</p>
+        </div>`;
 
-    mainFab.addEventListener('click', () => {
-        fabOptionsContainer.classList.toggle('hidden');
-        mainFab.firstElementChild.textContent = fabOptionsContainer.classList.contains('hidden') ? 'add' : 'close';
-    });
-
-    btnNoDueDate.addEventListener('click', () => {
-        openModal(false);
-    });
-
-    // "Due by" button logic
-    btnDueDate.addEventListener('click', () => {
-        openModal(true);
-    });
-
-    function openModal(showDate) {
-        fabOptionsContainer.classList.add('hidden');
-        mainFab.firstElementChild.textContent = 'add';
-
-        if (showDate) {
-            modalDateSection.classList.remove('hidden');
-        } else {
-            modalDateSection.classList.add('hidden');
-        }
-
-        addTaskModal.classList.remove('hidden');
-        newTaskInput.focus();
-    }
-
-    cancelTaskBtn.addEventListener('click', () => {
-        addTaskModal.classList.add('hidden');
-        newTaskInput.value = '';
-        taskDateInput.value = '';
-        taskTimeInput.value = '';
-    });
-
-    saveTaskBtn.addEventListener('click', () => {
-        const content = newTaskInput.value.trim();
-        if (content) {
-            // Re-query inputs dynamically to avoid stale references if needed, 
-            // but identifiers are constant here so we can use declared vars.
-            let dueDate = null;
-            if (taskDateInput.value) {
-                if (taskTimeInput.value) {
-                    dueDate = `${taskDateInput.value}T${taskTimeInput.value}`;
-                } else {
-                    dueDate = taskDateInput.value;
-                }
-            }
-            createTask(content, dueDate);
+    // --- Modal & Interaction ---
+    ELEMENTS.mainFab.addEventListener('click', () => {
+        if (currentView === 'notes') openModal(false, true);
+        else {
+            ELEMENTS.fabOptions.classList.toggle('hidden');
+            ELEMENTS.mainFab.firstElementChild.textContent = ELEMENTS.fabOptions.classList.contains('hidden') ? 'add' : 'close';
         }
     });
 
-    // --- Global Helpers for Inline Handlers ---
+    document.getElementById('btn-no-due-date').addEventListener('click', () => openModal(false));
+    document.getElementById('btn-due-date').addEventListener('click', () => openModal(true));
+    document.getElementById('cancel-task-btn').addEventListener('click', () => {
+        ELEMENTS.addTaskModal.classList.add('hidden');
+        editingTaskId = null;
+    });
 
-    function createTask(content, dueDate) {
-        fetch('/api/tasks', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content, due_date: dueDate })
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.message === 'success') {
-                    addTaskModal.classList.add('hidden');
-                    newTaskInput.value = '';
-                    fetchTasks();
-                }
-            })
-            .catch(err => console.error('Error creating task:', err));
-    }
+    const openModal = (showDate, isNote = false) => {
+        ELEMENTS.fabOptions.classList.add('hidden');
+        ELEMENTS.mainFab.firstElementChild.textContent = 'add';
+        ELEMENTS.addTaskModal.classList.remove('hidden');
+        editingTaskId = null;
 
-    window.toggleImportant = function (id, currentStatus) {
-        const newStatus = currentStatus ? 0 : 1;
-        fetch(`/api/tasks/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ is_important: newStatus })
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.message === 'success') {
-                    fetchTasks();
-                }
-            });
-    }
+        ELEMENTS.newTaskInput.value = '';
+        ELEMENTS.taskDateInput.value = '';
+        ELEMENTS.taskTimeInput.value = '';
 
-    window.markDone = function (id) {
-        fetch(`/api/tasks/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'completed' })
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.message === 'success') {
-                    fetchTasks();
-                }
-            });
-    }
+        qs('h3').textContent = isNote ? 'New Note' : 'New Task';
+        ELEMENTS.newTaskInput.placeholder = isNote ? 'Enter note content...' : 'What needs to be done?';
 
-    window.deleteTask = function (id) {
-        fetch(`/api/tasks/${id}`, {
-            method: 'DELETE'
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.message === 'deleted') {
-                    fetchTasks();
-                } else {
-                    alert('Failed to delete task');
-                }
-            })
-            .catch(err => console.error('Error deleting task:', err));
-    }
+        if (showDate && !isNote) ELEMENTS.modalDateSection.classList.remove('hidden');
+        else ELEMENTS.modalDateSection.classList.add('hidden');
+
+        ELEMENTS.newTaskInput.focus();
+    };
+
+    window.prepEdit = (item, isNote) => {
+        openModal(!isNote, isNote);
+        qs('h3').textContent = isNote ? 'Edit Note' : 'Edit Task';
+        editingTaskId = item.id;
+        ELEMENTS.newTaskInput.value = item.content;
+
+        if (!isNote && item.due_date) {
+            ELEMENTS.modalDateSection.classList.remove('hidden');
+            const d = new Date(item.due_date);
+            ELEMENTS.taskDateInput.value = d.toISOString().split('T')[0];
+            if (item.due_date.includes('T')) ELEMENTS.taskTimeInput.value = d.toTimeString().slice(0, 5);
+        }
+    };
+
+    ELEMENTS.saveTaskBtn.addEventListener('click', async () => {
+        const content = ELEMENTS.newTaskInput.value.trim();
+        if (!content) return;
+
+        const isNote = currentView === 'notes';
+        const endpoint = isNote ? 'notes' : 'tasks';
+        let body = { content };
+
+        if (!isNote) {
+            const d = ELEMENTS.taskDateInput.value;
+            const t = ELEMENTS.taskTimeInput.value;
+            body.due_date = d ? (t ? `${d}T${t}` : d) : null;
+        }
+
+        let res;
+        if (editingTaskId) res = await apiCall(`${endpoint}/${editingTaskId}`, 'PATCH', body);
+        else res = await apiCall(endpoint, 'POST', body);
+
+        if (res && res.message === 'success') {
+            ELEMENTS.addTaskModal.classList.add('hidden');
+            isNote ? fetchNotes() : fetchTasks();
+        }
+    });
+
+    // --- Global Actions (Window) ---
+    window.toggleItem = async (endpoint, id, currentStatus) => {
+        await apiCall(`${endpoint}/${id}`, 'PATCH', { is_important: currentStatus ? 0 : 1 });
+        endpoint === 'notes' ? fetchNotes() : fetchTasks();
+    };
+
+    window.markDone = async (id) => {
+        await apiCall(`tasks/${id}`, 'PATCH', { status: 'completed' });
+        fetchTasks();
+    };
+
+    window.deleteItem = async (endpoint, id) => {
+        await apiCall(`${endpoint}/${id}`, 'DELETE');
+        endpoint === 'notes' ? fetchNotes() : fetchTasks();
+    };
+
+    // Init
+    updateHeaderDate();
+    updateView('pending');
+    fetchTasks();
 });

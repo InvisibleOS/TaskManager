@@ -31,12 +31,27 @@
                     </div>
                 </div>
                 <div class="view-switcher">
+                    <button class="view-btn" data-view="notes">Notes</button>
                     <button class="view-btn active" data-view="pending">Pending</button>
                     <button class="view-btn" data-view="completed">Completed</button>
                 </div>
             </header>
 
             <div class="task-board">
+                <section id="section-notes-important" class="task-section notes-section hidden">
+                    <h2 class="section-title">Important</h2>
+                    <div id="notes-grid-important" class="task-grid">
+                        <!-- Important notes will be injected here -->
+                    </div>
+                </section>
+
+                <section id="section-notes" class="task-section notes-section hidden">
+                    <h2 class="section-title">Notes</h2>
+                    <div id="notes-grid" class="task-grid">
+                        <!-- Other notes will be injected here -->
+                    </div>
+                </section>
+
                 <section id="section-important" class="task-section important-section">
                     <h2 class="section-title">Important</h2>
                     <div id="important-tasks" class="task-grid">
