@@ -10,7 +10,10 @@ app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- Helpers ---
-const handleError = (res, err) => res.status(400).json({ "error": err.message });
+const handleError = (res, err) => {
+    console.error(err);
+    res.status(400).json({ "error": err.message });
+};
 
 const buildUpdateQuery = (table, id, data, allowedFields) => {
     const updates = [];
