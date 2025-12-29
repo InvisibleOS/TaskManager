@@ -4,12 +4,9 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "start": "node server.js",
-    "electron": "electron .",
+    "start": "electron .",
+    "server": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "engines": {
-    "node": ">=18.x"
   },
   "keywords": [],
   "author": "",
