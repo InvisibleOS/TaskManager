@@ -6,205 +6,88 @@ const db = require('./database');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- Helpers ---
+const handleError = (res, err) => res.status(400).json({ "error": err.message });
+
+const buildUpdateQuery = (table, id, data, allowedFields) => {
+    const updates = [];
+    const params = [];
+    let paramIndex = 1;
+
+    allowedFields.forEach(field => {
+        if (data[field] !== undefined) {
+            updates.push(`${field} = $${paramIndex++}`);
+            params.push(data[field]);
+        }
+    });
+
+    if (updates.length === 0) return null;
+
+    params.push(id);
+    return {
+        sql: `UPDATE ${table} SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
+        params
+    };
+};
+
 // --- API Routes ---
 
-// --- Notes API ---
-
-// Get all notes
-app.get('/api/notes', async (req, res) => {
-    const sql = "SELECT * FROM notes ORDER BY is_important DESC, created_at DESC";
+// Get all
+const getAll = (table) => async (req, res) => {
     try {
-        const result = await db.query(sql);
-        res.json({
-            "message": "success",
-            "data": result.rows
-        });
-    } catch (err) {
-        res.status(400).json({ "error": err.message });
-    }
-});
+        const result = await db.query(`SELECT * FROM ${table} ORDER BY is_important DESC, created_at DESC`);
+        res.json({ "message": "success", "data": result.rows });
+    } catch (err) { handleError(res, err); }
+};
 
-// Create a new note
+app.get('/api/notes', getAll('notes'));
+app.get('/api/tasks', getAll('tasks'));
+
+// Create
 app.post('/api/notes', async (req, res) => {
     const { content } = req.body;
     const created_at = new Date().toISOString();
-    const sql = 'INSERT INTO notes (content, created_at) VALUES ($1, $2) RETURNING id';
-    const params = [content, created_at];
-
     try {
-        const result = await db.query(sql, params);
-        res.json({
-            "message": "success",
-            "data": {
-                id: result.rows[0].id,
-                content,
-                created_at,
-                is_important: 0
-            }
-        });
-    } catch (err) {
-        res.status(400).json({ "error": err.message });
-    }
+        const result = await db.query('INSERT INTO notes (content, created_at) VALUES ($1, $2) RETURNING id', [content, created_at]);
+        res.json({ "message": "success", "data": { id: result.rows[0].id, content, created_at, is_important: 0 } });
+    } catch (err) { handleError(res, err); }
 });
 
-// Update note (content or importance)
-app.patch('/api/notes/:id', async (req, res) => {
-    const { content, is_important } = req.body;
-    const { id } = req.params;
-
-    let sql = 'UPDATE notes SET ';
-    const params = [];
-    const updates = [];
-    let paramIndex = 1;
-
-    if (content !== undefined) {
-        updates.push(`content = $${paramIndex++}`);
-        params.push(content);
-    }
-
-    if (is_important !== undefined) {
-        updates.push(`is_important = $${paramIndex++}`);
-        params.push(is_important);
-    }
-
-    if (updates.length === 0) {
-        return res.status(400).json({ "error": "No fields to update" });
-    }
-
-    sql += updates.join(', ') + ` WHERE id = $${paramIndex}`;
-    params.push(id);
-
-    try {
-        const result = await db.query(sql, params);
-        res.json({
-            "message": "success",
-            "changes": result.rowCount
-        });
-    } catch (err) {
-        res.status(400).json({ "error": err.message });
-    }
-});
-
-// Delete a note
-app.delete('/api/notes/:id', async (req, res) => {
-    const { id } = req.params;
-    try {
-        const result = await db.query('DELETE FROM notes WHERE id = $1', [id]);
-        res.json({ "message": "deleted", "changes": result.rowCount });
-    } catch (err) {
-        res.status(400).json({ "error": err.message });
-    }
-});
-
-// --- Tasks API ---
-
-// Get all tasks
-app.get('/api/tasks', async (req, res) => {
-    const sql = "SELECT * FROM tasks ORDER BY is_important DESC, created_at DESC";
-    try {
-        const result = await db.query(sql);
-        res.json({
-            "message": "success",
-            "data": result.rows
-        });
-    } catch (err) {
-        res.status(400).json({ "error": err.message });
-    }
-});
-
-// Create a new task
 app.post('/api/tasks', async (req, res) => {
     const { content, due_date } = req.body;
     const created_at = new Date().toISOString();
-    const sql = 'INSERT INTO tasks (content, created_at, due_date) VALUES ($1, $2, $3) RETURNING id';
-    const params = [content, created_at, due_date || null];
-
     try {
-        const result = await db.query(sql, params);
-        res.json({
-            "message": "success",
-            "data": {
-                id: result.rows[0].id,
-                content,
-                created_at,
-                due_date: due_date || null,
-                status: 'pending',
-                is_important: 0
-            }
-        });
-    } catch (err) {
-        res.status(400).json({ "error": err.message });
-    }
+        const result = await db.query('INSERT INTO tasks (content, created_at, due_date) VALUES ($1, $2, $3) RETURNING id', [content, created_at, due_date || null]);
+        res.json({ "message": "success", "data": { id: result.rows[0].id, content, created_at, due_date: due_date || null, status: 'pending', is_important: 0 } });
+    } catch (err) { handleError(res, err); }
 });
 
-// Update task (mark as done or important)
-app.patch('/api/tasks/:id', async (req, res) => {
-    const { status, is_important } = req.body;
-    const { id } = req.params;
-
-    let sql = 'UPDATE tasks SET ';
-    const params = [];
-    const updates = [];
-    let paramIndex = 1;
-
-    if (status !== undefined) {
-        updates.push(`status = $${paramIndex}`);
-        params.push(status);
-        paramIndex++;
-    }
-
-    if (is_important !== undefined) {
-        updates.push(`is_important = $${paramIndex}`);
-        params.push(is_important);
-        paramIndex++;
-    }
-
-    if (req.body.content !== undefined) {
-        updates.push(`content = $${paramIndex}`);
-        params.push(req.body.content);
-        paramIndex++;
-    }
-
-    if (req.body.due_date !== undefined) {
-        updates.push(`due_date = $${paramIndex}`);
-        params.push(req.body.due_date);
-        paramIndex++;
-    }
-
-    if (updates.length === 0) {
-        return res.status(400).json({ "error": "No fields to update" });
-    }
-
-    sql += updates.join(', ') + ` WHERE id = $${paramIndex}`;
-    params.push(id);
+// Update
+const handleUpdate = (table, allowedFields) => async (req, res) => {
+    const query = buildUpdateQuery(table, req.params.id, req.body, allowedFields);
+    if (!query) return res.status(400).json({ "error": "No fields to update" });
 
     try {
-        const result = await db.query(sql, params);
-        res.json({
-            "message": "success",
-            "changes": result.rowCount
-        });
-    } catch (err) {
-        res.status(400).json({ "error": err.message });
-    }
-});
+        const result = await db.query(query.sql, query.params);
+        res.json({ "message": "success", "changes": result.rowCount });
+    } catch (err) { handleError(res, err); }
+};
 
-// Delete a task
-app.delete('/api/tasks/:id', async (req, res) => {
-    const { id } = req.params;
+app.patch('/api/notes/:id', handleUpdate('notes', ['content', 'is_important']));
+app.patch('/api/tasks/:id', handleUpdate('tasks', ['content', 'is_important', 'status', 'due_date']));
+
+// Delete
+const handleDelete = (table) => async (req, res) => {
     try {
-        const result = await db.query('DELETE FROM tasks WHERE id = $1', [id]);
+        const result = await db.query(`DELETE FROM ${table} WHERE id = $1`, [req.params.id]);
         res.json({ "message": "deleted", "changes": result.rowCount });
-    } catch (err) {
-        res.status(400).json({ "error": err.message });
-    }
-});
+    } catch (err) { handleError(res, err); }
+};
 
-// Start Server
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+app.delete('/api/notes/:id', handleDelete('notes'));
+app.delete('/api/tasks/:id', handleDelete('tasks'));
+
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
