@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-container">
+        <main class="main-content">
+            <header class="app-header">
+                <div class="date-display">
+                    <h1 id="current-day">Monday</h1>
+                    <p id="current-date">October 24, 2023</p>
+                </div>
+                <div class="stats-container">
+                    <div class="stat-item">
+                        <span class="stat-value" id="stat-pending">0</span>
+                        <span class="stat-label">Pending tasks</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="stat-important">0</span>
+                        <span class="stat-label">Need attention</span>
+                    </div>
+                </div>
+                <div class="view-switcher">
+                    <button class="view-btn active" data-view="pending">Pending</button>
+                    <button class="view-btn" data-view="completed">Completed</button>
+                </div>
+            </header>
+
+            <div class="task-board">
+                <section id="section-important" class="task-section important-section">
+                    <h2 class="section-title">Important</h2>
+                    <div id="important-tasks" class="task-grid">
+                        <!-- Important tasks will be injected here -->
+                    </div>
+                </section>
+
+                <section id="section-upcoming" class="task-section upcoming-section hidden">
+                    <h2 class="section-title">Upcoming</h2>
+                    <div id="upcoming-tasks" class="task-grid">
+                        <!-- Upcoming tasks will be injected here -->
+                    </div>
+                </section>
+
+                <section id="section-pending" class="task-section pending-section">
+                    <h2 class="section-title">Tasks</h2>
+                    <div id="pending-tasks" class="task-grid">
+                        <!-- Pending tasks will be injected here -->
+                    </div>
+                </section>
+
+                <section id="section-completed" class="task-section completed-section hidden">
+                    <h2 class="section-title">Completed</h2>
+                    <div id="completed-tasks" class="task-grid">
+                        <!-- Completed tasks will be injected here -->
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <div id="add-task-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>New Task</h3>
+            <textarea id="new-task-input" placeholder="What needs to be done?"></textarea>
+            <div id="modal-date-section" class="date-inputs hidden">
+                <div class="input-group">
+                    <label>Date</label>
+                    <input type="date" id="task-date">
+                </div>
+                <div class="input-group">
+                    <label>Time</label>
+                    <input type="time" id="task-time">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="cancel-task-btn" class="btn text-btn">Cancel</button>
+                <button id="save-task-btn" class="btn filled-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="fab-wrapper">
+        <div class="fab-options hidden" id="fab-options">
+            <button class="fab-option" id="btn-due-date">Due by</button>
+            <button class="fab-option" id="btn-no-due-date">No due date</button>
+        </div>
+        <button id="main-fab" class="fab-main">
+            <span class="material-icons-round">add</span>
+        </button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
