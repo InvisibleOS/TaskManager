@@ -12,6 +12,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const viewBtns = document.querySelectorAll('.view-btn');
 
+    // Notes Elements
+    const sectionNotes = document.getElementById('section-notes');
+    const notesGrid = document.getElementById('notes-grid');
+    const sectionNotesImportant = document.getElementById('section-notes-important');
+    const notesGridImportant = document.getElementById('notes-grid-important');
+    let currentView = 'pending';
+
     // Stats
     const statPendingEl = document.getElementById('stat-pending');
     const statImportantEl = document.getElementById('stat-important');
@@ -39,17 +46,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // View Switcher
     function updateView(view) {
+        // Reset FAB state
+        fabOptionsContainer.classList.add('hidden');
+        mainFab.firstElementChild.textContent = 'add';
+
         if (view === 'pending') {
             sectionImportant.classList.remove('hidden');
             sectionUpcoming.classList.remove('hidden');
             sectionPending.classList.remove('hidden');
             sectionCompleted.classList.add('hidden');
         } else if (view === 'completed') {
+            sectionNotes.classList.add('hidden');
+            sectionNotesImportant.classList.add('hidden');
             sectionImportant.classList.add('hidden');
             sectionUpcoming.classList.add('hidden');
             sectionPending.classList.add('hidden');
             sectionCompleted.classList.remove('hidden');
+        } else if (view === 'notes') {
+            sectionNotes.classList.remove('hidden');
+            sectionNotesImportant.classList.remove('hidden');
+            sectionImportant.classList.add('hidden');
+            sectionUpcoming.classList.add('hidden');
+            sectionPending.classList.add('hidden');
+            sectionCompleted.classList.add('hidden');
+            fetchNotes();
         }
+        currentView = view;
     }
 
     viewBtns.forEach(btn => {
@@ -256,8 +278,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Interaction Listeners ---
 
     mainFab.addEventListener('click', () => {
-        fabOptionsContainer.classList.toggle('hidden');
-        mainFab.firstElementChild.textContent = fabOptionsContainer.classList.contains('hidden') ? 'add' : 'close';
+        if (currentView === 'notes') {
+            openModal(false);
+        } else {
+            fabOptionsContainer.classList.toggle('hidden');
+            mainFab.firstElementChild.textContent = fabOptionsContainer.classList.contains('hidden') ? 'add' : 'close';
+        }
     });
 
     btnNoDueDate.addEventListener('click', () => {
@@ -297,6 +323,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     taskTimeInput.value = '';
                 }
                 modalDateSection.classList.remove('hidden');
+            } else if (currentView === 'notes') {
+                modalDateSection.classList.add('hidden');
             } else {
                 taskDateInput.value = '';
                 taskTimeInput.value = '';
@@ -313,10 +341,18 @@ document.addEventListener('DOMContentLoaded', () => {
             taskDateInput.value = '';
             taskTimeInput.value = '';
 
-            if (showDate) {
+            if (showDate || (currentView !== 'notes' && showDate)) {
                 modalDateSection.classList.remove('hidden');
             } else {
                 modalDateSection.classList.add('hidden');
+            }
+
+            if (currentView === 'notes') {
+                document.querySelector('#add-task-modal h3').textContent = 'New Note';
+                newTaskInput.placeholder = "Enter note content...";
+                modalDateSection.classList.add('hidden');
+            } else {
+                newTaskInput.placeholder = "What needs to be done?";
             }
         }
 
@@ -351,9 +387,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (editingTaskId) {
-                updateTaskContent(editingTaskId, content, dueDate);
+                if (currentView === 'notes') {
+                    updateNoteContent(editingTaskId, content);
+                } else {
+                    updateTaskContent(editingTaskId, content, dueDate);
+                }
             } else {
-                createTask(content, dueDate);
+                if (currentView === 'notes') {
+                    createNote(content);
+                } else {
+                    createTask(content, dueDate);
+                }
             }
         }
     });
@@ -436,5 +480,166 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             })
             .catch(err => console.error('Error deleting task:', err));
+    }
+
+    // --- Notes API Functions ---
+
+    function fetchNotes() {
+        fetch('/api/notes')
+            .then(res => res.json())
+            .then(data => {
+                if (data.message === 'success') {
+                    renderNotes(data.data);
+                }
+            })
+            .catch(err => console.error('Error fetching notes:', err));
+    }
+
+    function renderNotes(notes) {
+        notesGrid.innerHTML = '';
+        notesGridImportant.innerHTML = '';
+
+        if (notes.length === 0) {
+            notesGrid.innerHTML = createEmptyState('notes', 'No notes found');
+        } else {
+            notes.forEach(note => {
+                const card = createNoteCard(note);
+                if (note.is_important) {
+                    notesGridImportant.appendChild(card);
+                } else {
+                    notesGrid.appendChild(card);
+                }
+            });
+
+            // Handle empty important section visibility or message? 
+            // Matching Tasks behavior: section is visible but maybe empty? 
+            // If empty, let's just leave it empty (no state) or hide it? 
+            // The user's request "Just like tasks" suggests we keep the section but maybe it's cleaner to hide if empty?
+            // "Tasks" Important section SHOWS empty state. Let's do that for now.
+            if (notesGridImportant.children.length === 0) {
+                // Or actually, tasks important section usually stays valid. 
+                // Let's check `renderTasks` again.
+                // It adds empty state if children.length === 0.
+                // But wait, if pending is empty it shows empty state. 
+                // If important is empty, does it show empty state? Yes: innerHTML = createEmptyState...
+                // However, "Upcoming" section is hidden logic is complicated. 
+                // Let's just create empty state if grid is empty, but maybe for important notes we don't want a huge empty box if there are none? 
+                // Actually, usually "Important" section only appears if there ARE important things?
+                // In `renderTasks`: 
+                // `if (importantTasksContainer.children.length === 0) importantTasksContainer.innerHTML = createEmptyState...`
+                // So it shows. Let's do the same.
+
+                // But wait, if I have NO important notes, I might not want to see the header "Important".
+                // In Tasks view, "Important" section seems to be always visible in "Pending" view.
+                // So I will make it visible but optionally empty.
+                // However, usually for "Important" sections, if empty, users prefer it hidden.
+                // But the user said "Just like tasks". 
+                // In tasks, if I have 0 important tasks, is the section hidden? 
+                // Looking at `renderTasks`, there is NO code to hide `sectionImportant`. 
+                // So it is always visible.
+
+                // But wait, the empty state might be clutter. 
+                // Let's check `style.css` - `.empty-state` has opacity 0.5.
+
+                // Actually, let's just NOT show the "Important" header if no important notes. That is cleaner.
+                // But user said "just like tasks".
+                // I'll stick to strict "just like tasks" first.
+                notesGridImportant.innerHTML = createEmptyState('star', 'No important notes');
+            }
+
+            // If we have content in important, remove empty state? 
+            // Oh `appendChild` keeps it? No I cleared `innerHTML = ''` at start.
+
+            // Wait, the logic above:
+            // `notes.forEach(...)` adds children. 
+            // `if (notesGridImportant.children.length === 0)` -> add empty state.
+            // This is correct.
+        }
+    }
+
+    function createNoteCard(note) {
+        const card = document.createElement('div');
+        card.className = `task-card ${note.is_important ? 'important' : ''}`;
+
+        const createdDate = new Date(note.created_at);
+        const createdString = `Created at: ${createdDate.toLocaleDateString()} ${createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+        const importantBtn = `
+            <button class="card-btn btn-important ${note.is_important ? 'active' : ''}" 
+                onclick="toggleNoteImportant(${note.id}, ${note.is_important})">
+                ${note.is_important ? 'Unpin' : 'Important'}
+            </button>`;
+
+        const editBtn = `
+            <button class="card-btn" style="background:transparent; border: 1px solid #ccc; color: inherit; margin-left: 8px;"
+                onclick='openEditModal(${JSON.stringify(note).replace(/'/g, "&#39;")})'>Edit</button>`;
+
+        const deleteBtn = `
+            <button class="card-btn" style="background:transparent; border: 1px solid #ccc; color: inherit; margin-left:8px;" 
+                onclick="deleteNote(${note.id})">Delete</button>`;
+
+        card.innerHTML = `
+            <div class="task-content">
+                ${note.content}
+            </div>
+            <div class="task-card-footer">
+                <div class="created-timestamp">${createdString}</div>
+                <div class="card-actions">
+                    ${importantBtn}
+                    ${editBtn}
+                    ${deleteBtn}
+                </div>
+            </div>
+        `;
+        return card;
+    }
+
+    function createNote(content) {
+        fetch('/api/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.message === 'success') {
+                    addTaskModal.classList.add('hidden');
+                    newTaskInput.value = '';
+                    fetchNotes();
+                }
+            });
+    }
+
+    function updateNoteContent(id, content) {
+        fetch(`/api/notes/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.message === 'success') {
+                    addTaskModal.classList.add('hidden');
+                    editingTaskId = null;
+                    fetchNotes();
+                }
+            });
+    }
+
+    window.toggleNoteImportant = function (id, currentStatus) {
+        const newStatus = currentStatus ? 0 : 1;
+        fetch(`/api/notes/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_important: newStatus })
+        })
+            .then(res => res.json())
+            .then(data => fetchNotes());
+    }
+
+    window.deleteNote = function (id) {
+        fetch(`/api/notes/${id}`, { method: 'DELETE' })
+            .then(res => res.json())
+            .then(data => fetchNotes());
     }
 });

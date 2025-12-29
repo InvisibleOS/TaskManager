@@ -12,6 +12,96 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // --- API Routes ---
 
+// --- Notes API ---
+
+// Get all notes
+app.get('/api/notes', (req, res) => {
+    const sql = "SELECT * FROM notes ORDER BY is_important DESC, created_at DESC";
+    db.all(sql, [], (err, rows) => {
+        if (err) {
+            return res.status(400).json({ "error": err.message });
+        }
+        res.json({
+            "message": "success",
+            "data": rows
+        });
+    });
+});
+
+// Create a new note
+app.post('/api/notes', (req, res) => {
+    const { content } = req.body;
+    const created_at = new Date().toISOString();
+    const sql = 'INSERT INTO notes (content, created_at) VALUES (?, ?)';
+    const params = [content, created_at];
+
+    db.run(sql, params, function (err) {
+        if (err) {
+            return res.status(400).json({ "error": err.message });
+        }
+        res.json({
+            "message": "success",
+            "data": {
+                id: this.lastID,
+                content,
+                created_at,
+                is_important: 0
+            }
+        });
+    });
+});
+
+// Update note (content or importance)
+app.patch('/api/notes/:id', (req, res) => {
+    const { content, is_important } = req.body;
+    const { id } = req.params;
+
+    let sql = 'UPDATE notes SET ';
+    const params = [];
+    const updates = [];
+
+    if (content !== undefined) {
+        updates.push('content = ?');
+        params.push(content);
+    }
+
+    if (is_important !== undefined) {
+        updates.push('is_important = ?');
+        params.push(is_important);
+    }
+
+    if (updates.length === 0) {
+        return res.status(400).json({ "error": "No fields to update" });
+    }
+
+    sql += updates.join(', ') + ' WHERE id = ?';
+    params.push(id);
+
+    db.run(sql, params, function (err) {
+        if (err) {
+            return res.status(400).json({ "error": err.message });
+        }
+        res.json({
+            "message": "success",
+            "changes": this.changes
+        });
+    });
+});
+
+// Delete a note
+app.delete('/api/notes/:id', (req, res) => {
+    const { id } = req.params;
+    db.run('DELETE FROM notes WHERE id = ?', id, function (err) {
+        if (err) {
+            return res.status(400).json({ "error": err.message });
+        }
+        res.json({ "message": "deleted", "changes": this.changes });
+    });
+});
+
+// --- Tasks API ---
+
+
 // Get all tasks
 app.get('/api/tasks', (req, res) => {
     const sql = "SELECT * FROM tasks ORDER BY is_important DESC, created_at DESC";

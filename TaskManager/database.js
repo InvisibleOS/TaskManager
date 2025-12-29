@@ -31,6 +31,18 @@ const db = new sqlite3.Database(dbPath, (err) => {
                 });
             }
         });
+
+        // Initialize Notes Table
+        db.run(`CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            is_important INTEGER DEFAULT 0
+        )`, (err) => {
+            if (err) {
+                console.error('Error creating notes table: ' + err.message);
+            }
+        });
     }
 });
 
