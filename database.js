@@ -1,37 +1,36 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
 
-const dbPath = path.resolve(__dirname, 'tasks.db');
-
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('Error opening database ' + dbPath + ': ' + err.message);
-    } else {
-        console.log('Connected to the SQLite database.');
-
-        // Initialize Tasks Table
-        db.run(`CREATE TABLE IF NOT EXISTS tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            content TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            status TEXT DEFAULT 'pending',
-            is_important INTEGER DEFAULT 0
-        )`, (err) => {
-            if (err) {
-                console.error('Error creating table: ' + err.message);
-            } else {
-                // Migration: Add due_date column if it doesn't exist
-                db.run("ALTER TABLE tasks ADD COLUMN due_date TEXT", (err) => {
-                    // Ignore error if column already exists (Duplicate column name)
-                    if (err && !err.message.includes("duplicate column name")) {
-                        console.error('Error adding due_date column: ' + err.message);
-                    } else if (!err) {
-                        console.log('Added due_date column to tasks table.');
-                    }
-                });
-            }
-        });
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false // Required for Render Postgres
     }
 });
 
-module.exports = db;
+// Initialize Database Table
+const initDb = async () => {
+    try {
+        await pool.query(`CREATE TABLE IF NOT EXISTS tasks (
+            id SERIAL PRIMARY KEY,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            due_date TEXT,
+            status TEXT DEFAULT 'pending',
+            is_important INTEGER DEFAULT 0
+        )`);
+
+        await pool.query(`CREATE TABLE IF NOT EXISTS notes (
+            id SERIAL PRIMARY KEY,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            is_important INTEGER DEFAULT 0
+        )`);
+        console.log('Database initialized: tasks and notes tables ready.');
+    } catch (err) {
+        console.error('Error initializing database:', err.message);
+    }
+};
+
+initDb();
+
+module.exports = pool;
