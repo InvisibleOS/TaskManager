@@ -560,6 +560,12 @@ body {
         gap: 1rem;
     }
 
+    .view-switcher {
+        margin-left: 0;
+        width: 100%;
+        /* Optional: make it full width or just let it sit */
+    }
+
     .fab {
         width: 100%;
         justify-content: center;
