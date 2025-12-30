@@ -61,17 +61,11 @@ app.get('/api/tasks', getAll('tasks'));
 
 app.post('/api/notes', async (req, res) => {
     const { content } = req.body;
-    console.log('Received POST /api/notes:', req.body); // DEBUG
     const created_at = new Date().toISOString();
     try {
-        console.log('Inserting into DB...'); // DEBUG
         const result = await runQuery('INSERT INTO notes (content, created_at) VALUES (?, ?)', [content, created_at]);
-        console.log('DB Insert Success:', result); // DEBUG
         res.json({ "message": "success", "data": { id: result.lastID, content, created_at, is_important: 0 } });
-    } catch (err) {
-        console.error('DB Insert Error:', err); // DEBUG
-        handleError(res, err);
-    }
+    } catch (err) { handleError(res, err); }
 });
 
 app.post('/api/tasks', async (req, res) => {
