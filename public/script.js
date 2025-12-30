@@ -151,16 +151,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const endpoint = isNote ? 'notes' : 'tasks';
 
-        const actions = `
-            <div class="card-actions">
-                ${item.status !== 'completed' ? `
+        let actions = '';
+        if (isNote) {
+            // Note Card: [Pin] [Delete] [Edit]
+            actions = `
+                <div class="card-actions">
                     <button class="card-btn btn-important ${item.is_important ? 'active' : ''}" onclick="window.toggleItem('${endpoint}', ${item.id}, ${item.is_important})">${item.is_important ? 'Unpin' : 'Pin'}</button>
-                    ${!isNote ? `<button class="card-btn btn-done" onclick="window.markDone(${item.id})">Done</button>` : ''}
-                    <button class="card-btn" style="border: 1px solid #ccc" onclick='window.prepEdit(${JSON.stringify(item).replace(/'/g, "&#39;")}, ${isNote})'>Edit</button>
-                ` : ''}
-                ${item.status === 'completed' || isNote ? `<button class="card-btn btn-delete" onclick="window.deleteItem('${endpoint}', ${item.id})">Delete</button>` : ''}
-            </div>
-        `;
+                    <button class="card-btn btn-delete" onclick="window.deleteItem('${endpoint}', ${item.id})">Delete</button>
+                    <button class="card-btn btn-done" onclick='window.prepEdit(${JSON.stringify(item).replace(/'/g, "&#39;")}, ${isNote})'>Edit</button>
+                </div>
+            `;
+        } else {
+            // Task Card: [Pin] [Done] [Edit] OR [Delete] (if completed)
+            actions = `
+                <div class="card-actions">
+                    ${item.status !== 'completed' ? `
+                        <button class="card-btn btn-important ${item.is_important ? 'active' : ''}" onclick="window.toggleItem('${endpoint}', ${item.id}, ${item.is_important})">${item.is_important ? 'Unpin' : 'Pin'}</button>
+                        <button class="card-btn btn-done" onclick="window.markDone(${item.id})">Done</button>
+                        <button class="card-btn" style="border: 1px solid #ccc" onclick='window.prepEdit(${JSON.stringify(item).replace(/'/g, "&#39;")}, ${isNote})'>Edit</button>
+                    ` : `
+                        <button class="card-btn btn-delete" onclick="window.deleteItem('${endpoint}', ${item.id})">Delete</button>
+                    `}
+                </div>
+            `;
+        }
 
         card.innerHTML = `${header}<div class="task-content">${item.content}</div><div class="task-card-footer"><div class="created-timestamp">${createdStr}</div>${actions}</div>`;
         return card;
