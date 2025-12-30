@@ -334,8 +334,8 @@ body {
 }
 
 .btn-done {
-    background-color: var(--md-sys-color-primary);
-    color: var(--md-sys-color-on-primary);
+    background-color: var(--md-sys-color-primary) !important;
+    color: var(--md-sys-color-on-primary) !important;
 }
 
 .btn-done:hover {
@@ -357,6 +357,16 @@ body {
     background-color: var(--md-sys-color-tertiary);
     color: var(--md-sys-color-on-tertiary);
     border-color: var(--md-sys-color-tertiary);
+}
+
+.btn-delete {
+    color: #e74c3c !important;
+    border: 1px solid #e74c3c !important;
+    background-color: rgba(231, 76, 60, 0.05) !important;
+}
+
+.btn-delete:hover {
+    background-color: rgba(231, 76, 60, 0.1) !important;
 }
 
 /* Empty State */
