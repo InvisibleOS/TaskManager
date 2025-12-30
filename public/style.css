@@ -579,8 +579,7 @@ body {
 
     .view-switcher {
         margin-left: 0;
-        width: 100%;
-        /* Optional: make it full width or just let it sit */
+        width: fit-content;
     }
 
     .fab {
