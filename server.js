@@ -38,7 +38,6 @@ const buildUpdateQuery = (table, id, data, allowedFields) => {
 
 // --- API Routes ---
 
-// Get all
 const getAll = (table) => async (req, res) => {
     try {
         const result = await db.query(`SELECT * FROM ${table} ORDER BY is_important DESC, created_at DESC`);
@@ -49,7 +48,6 @@ const getAll = (table) => async (req, res) => {
 app.get('/api/notes', getAll('notes'));
 app.get('/api/tasks', getAll('tasks'));
 
-// Create
 app.post('/api/notes', async (req, res) => {
     const { content } = req.body;
     const created_at = new Date().toISOString();
@@ -68,7 +66,6 @@ app.post('/api/tasks', async (req, res) => {
     } catch (err) { handleError(res, err); }
 });
 
-// Update
 const handleUpdate = (table, allowedFields) => async (req, res) => {
     const query = buildUpdateQuery(table, req.params.id, req.body, allowedFields);
     if (!query) return res.status(400).json({ "error": "No fields to update" });
@@ -82,7 +79,6 @@ const handleUpdate = (table, allowedFields) => async (req, res) => {
 app.patch('/api/notes/:id', handleUpdate('notes', ['content', 'is_important']));
 app.patch('/api/tasks/:id', handleUpdate('tasks', ['content', 'is_important', 'status', 'due_date']));
 
-// Delete
 const handleDelete = (table) => async (req, res) => {
     try {
         const result = await db.query(`DELETE FROM ${table} WHERE id = $1`, [req.params.id]);

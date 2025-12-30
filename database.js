@@ -19,10 +19,11 @@ const initDb = async () => {
             is_important INTEGER DEFAULT 0
         )`);
 
+        // Initialize Notes Table
         await pool.query(`CREATE TABLE IF NOT EXISTS notes (
             id SERIAL PRIMARY KEY,
             content TEXT NOT NULL,
-            created_at TEXT NOT NULL,
+            created_at TIMESTAMP NOT NULL,
             is_important INTEGER DEFAULT 0
         )`);
         console.log('Database initialized: tasks and notes tables ready.');
