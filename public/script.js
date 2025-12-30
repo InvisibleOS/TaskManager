@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Configuration & State ---
     const CONTAINERS = {
-        pending: ['section-pending', 'section-upcoming', 'section-important', 'section-notes-important'],
+        pending: ['section-pending', 'section-upcoming', 'section-important'],
         completed: ['section-completed'],
         notes: ['section-notes', 'section-notes-important']
     };
@@ -154,11 +154,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const actions = `
             <div class="card-actions">
                 ${item.status !== 'completed' ? `
-                    <button class="card-btn btn-important ${item.is_important ? 'active' : ''}" onclick="window.toggleItem('${endpoint}', ${item.id}, ${item.is_important})">${item.is_important ? 'Unpin' : 'Important'}</button>
+                    <button class="card-btn btn-important ${item.is_important ? 'active' : ''}" onclick="window.toggleItem('${endpoint}', ${item.id}, ${item.is_important})">${item.is_important ? 'Unpin' : 'Pin'}</button>
                     ${!isNote ? `<button class="card-btn btn-done" onclick="window.markDone(${item.id})">Done</button>` : ''}
                     <button class="card-btn" style="border: 1px solid #ccc" onclick='window.prepEdit(${JSON.stringify(item).replace(/'/g, "&#39;")}, ${isNote})'>Edit</button>
                 ` : ''}
-                ${item.status === 'completed' || isNote ? `<button class="card-btn" style="border: 1px solid #ccc" onclick="window.deleteItem('${endpoint}', ${item.id})">Delete</button>` : ''}
+                ${item.status === 'completed' || isNote ? `<button class="card-btn btn-delete" onclick="window.deleteItem('${endpoint}', ${item.id})">Delete</button>` : ''}
             </div>
         `;
 
