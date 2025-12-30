@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Configuration & State ---
     const CONTAINERS = {
-        pending: ['section-pending', 'section-upcoming', 'section-important', 'section-notes-important'],
+        pending: ['section-pending', 'section-upcoming', 'section-important'],
         completed: ['section-completed'],
         notes: ['section-notes', 'section-notes-important']
     };
