@@ -324,13 +324,20 @@ body {
 .card-btn {
     flex: 1;
     border: none;
-    padding: 0.75rem;
-    border-radius: var(--md-sys-shape-corner-medium);
+    padding: 0.4rem 1rem;
+    border-radius: 8px;
     font-family: var(--font-family);
     font-weight: 500;
     cursor: pointer;
-    transition: background-color 0.2s;
-    font-size: 0.9rem;
+    transition: all 0.2s ease;
+    font-size: 0.85rem;
+    background: transparent;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.card-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--md-sys-color-on-surface);
 }
 
 .btn-done {
@@ -500,33 +507,6 @@ body {
     transition: all 0.2s;
 }
 
-.card-btn {
-    padding: 0.4rem 1rem;
-    border-radius: 8px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    color: var(--text-secondary);
-}
-
-.btn-delete {
-    color: #e74c3c;
-    border: 1px solid #e74c3c !important;
-    background-color: rgba(231, 76, 60, 0.05);
-}
-
-.btn-delete:hover {
-    background-color: rgba(231, 76, 60, 0.1);
-}
-
-.card-btn:hover {
-    background: rgba(0, 0, 0, 0.05);
-    color: var(--text-primary);
-}
-
 .text-btn {
     background: transparent;
     color: var(--md-sys-color-primary);
@@ -545,6 +525,8 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     opacity: 0.9;
 }
+
+
 
 @media (max-width: 1200px) {
     .task-grid {
